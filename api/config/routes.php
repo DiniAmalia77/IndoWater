@@ -18,6 +18,8 @@ use IndoWater\Api\Controllers\DashboardController;
 use IndoWater\Api\Controllers\SettingController;
 use IndoWater\Api\Controllers\WebhookController;
 use IndoWater\Api\Controllers\HealthController;
+use IndoWater\Api\Middleware\AuthMiddleware;
+use IndoWater\Api\Middleware\RoleMiddleware;
 
 return function (App $app) {
     // Health Check
@@ -39,15 +41,15 @@ return function (App $app) {
 
         // User Routes
         $group->group('/users', function (RouteCollectorProxy $group) {
-            $group->get('', [UserController::class, 'index']);
-            $group->get('/{id}', [UserController::class, 'show']);
-            $group->post('', [UserController::class, 'store']);
-            $group->put('/{id}', [UserController::class, 'update']);
-            $group->delete('/{id}', [UserController::class, 'delete']);
             $group->get('/me', [UserController::class, 'me']);
             $group->put('/me', [UserController::class, 'updateProfile']);
             $group->put('/me/password', [UserController::class, 'updatePassword']);
-        });
+            $group->get('', [UserController::class, 'index'])->add(RoleMiddleware::adminOnly());
+            $group->get('/{id}', [UserController::class, 'show'])->add(RoleMiddleware::adminOnly());
+            $group->post('', [UserController::class, 'store'])->add(RoleMiddleware::adminOnly());
+            $group->put('/{id}', [UserController::class, 'update'])->add(RoleMiddleware::adminOnly());
+            $group->delete('/{id}', [UserController::class, 'delete'])->add(RoleMiddleware::superAdmin());
+        })->add(AuthMiddleware::class);
 
         // Client Routes
         $group->group('/clients', function (RouteCollectorProxy $group) {

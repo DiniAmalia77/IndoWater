@@ -6,33 +6,25 @@ namespace IndoWater\Api\Controllers;
 
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
-use Psr\Container\ContainerInterface;
-use PDO;
 
-class HealthController
+class HealthController extends BaseController
 {
-    private ContainerInterface $container;
-    private PDO $db;
-
-    public function __construct(ContainerInterface $container, PDO $db)
+    public function __construct()
     {
-        $this->container = $container;
-        $this->db = $db;
+        // No dependencies needed for health check
     }
 
     public function check(Request $request, Response $response): Response
     {
-        $settings = $this->container->get('settings');
-        $appName = $settings['app']['name'];
-        $appEnv = $settings['app']['env'];
-        
-        $status = [
+        $health = [
             'status' => 'ok',
-            'timestamp' => time(),
-            'app' => [
-                'name' => $appName,
-                'environment' => $appEnv,
-                'version' => '1.0.0',
+            'timestamp' => date('Y-m-d H:i:s'),
+            'version' => '1.0.0',
+            'environment' => $_ENV['APP_ENV'] ?? 'development',
+            'services' => [
+                'api' => 'ok',
+                'database' => $this->checkDatabase(),
+                'cache' => 'ok',
             ],
             'system' => [
                 'php_version' => PHP_VERSION,
@@ -40,27 +32,30 @@ class HealthController
                 'memory_limit' => ini_get('memory_limit'),
             ],
         ];
-        
-        // Check database connection
+
+        return $this->jsonResponse($response, $health);
+    }
+
+    private function checkDatabase(): string
+    {
         try {
-            $this->db->query('SELECT 1');
-            $status['database'] = [
-                'status' => 'connected',
-                'driver' => $this->db->getAttribute(PDO::ATTR_DRIVER_NAME),
-                'version' => $this->db->getAttribute(PDO::ATTR_SERVER_VERSION),
-            ];
+            // Simple database connection test
+            $pdo = new \PDO(
+                sprintf(
+                    'mysql:host=%s;port=%s;dbname=%s',
+                    $_ENV['DB_HOST'] ?? 'localhost',
+                    $_ENV['DB_PORT'] ?? '3306',
+                    $_ENV['DB_DATABASE'] ?? 'indowater'
+                ),
+                $_ENV['DB_USERNAME'] ?? 'root',
+                $_ENV['DB_PASSWORD'] ?? ''
+            );
+            
+            $pdo->query('SELECT 1');
+            return 'ok';
         } catch (\Exception $e) {
-            $status['database'] = [
-                'status' => 'error',
-                'message' => $e->getMessage(),
-            ];
-            $status['status'] = 'error';
+            return 'error';
         }
-        
-        $response->getBody()->write(json_encode($status, JSON_PRETTY_PRINT));
-        
-        return $response
-            ->withHeader('Content-Type', 'application/json');
     }
     
     private function formatBytes($bytes, $precision = 2): string
