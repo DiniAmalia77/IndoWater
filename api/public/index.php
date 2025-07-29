@@ -10,8 +10,10 @@ use IndoWater\Api\Middleware\ErrorMiddleware;
 require __DIR__ . '/../vendor/autoload.php';
 
 // Load environment variables
-$dotenv = Dotenv\Dotenv::createImmutable(__DIR__ . '/..');
-$dotenv->safeLoad();
+if (class_exists('Dotenv\Dotenv')) {
+    $dotenv = Dotenv\Dotenv::createImmutable(__DIR__ . '/..');
+    $dotenv->safeLoad();
+}
 
 // Set up dependencies
 $containerBuilder = new ContainerBuilder();
@@ -29,9 +31,12 @@ $settings($containerBuilder);
 $dependencies = require __DIR__ . '/../config/dependencies.php';
 $dependencies($containerBuilder);
 
-// Load repositories
-$repositories = require __DIR__ . '/../config/repositories.php';
-$repositories($containerBuilder);
+// Load repositories (if file exists)
+$repositoriesFile = __DIR__ . '/../config/repositories.php';
+if (file_exists($repositoriesFile)) {
+    $repositories = require $repositoriesFile;
+    $repositories($containerBuilder);
+}
 
 // Build PHP-DI Container instance
 $container = $containerBuilder->build();
@@ -45,7 +50,7 @@ $middleware = require __DIR__ . '/../config/middleware.php';
 $middleware($app);
 
 // Register routes
-$routes = require __DIR__ . '/../config/routes.php';
+$routes = require __DIR__ . '/../config/routes_simple.php';
 $routes($app);
 
 // Add Error Middleware
