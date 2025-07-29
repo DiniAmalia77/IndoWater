@@ -21,29 +21,23 @@ import ClientDashboard from './pages/dashboard/client/Dashboard';
 import CustomerDashboard from './pages/dashboard/customer/Dashboard';
 
 // Superadmin Pages
-import ClientsManagement from './pages/dashboard/superadmin/ClientsManagement';
-import PropertiesManagement from './pages/dashboard/superadmin/PropertiesManagement';
-import CustomersManagement from './pages/dashboard/superadmin/CustomersManagement';
-import MetersManagement from './pages/dashboard/superadmin/MetersManagement';
-import PaymentsManagement from './pages/dashboard/superadmin/PaymentsManagement';
-import ReportsManagement from './pages/dashboard/superadmin/ReportsManagement';
-import ServiceFeesManagement from './pages/dashboard/superadmin/ServiceFeesManagement';
-import SystemSettings from './pages/dashboard/superadmin/SystemSettings';
+import ClientManagement from './pages/dashboard/superadmin/ClientManagement';
 
 // Client Pages
-import ClientProperties from './pages/dashboard/client/Properties';
-import ClientCustomers from './pages/dashboard/client/Customers';
-import ClientMeters from './pages/dashboard/client/Meters';
-import ClientPayments from './pages/dashboard/client/Payments';
-import ClientReports from './pages/dashboard/client/Reports';
-import ClientSettings from './pages/dashboard/client/Settings';
+import PropertyManagement from './pages/dashboard/client/PropertyManagement';
+import CustomerManagement from './pages/dashboard/client/CustomerManagement';
+import MeterManagement from './pages/dashboard/client/MeterManagement';
+import PaymentManagement from './pages/dashboard/client/PaymentManagement';
 
 // Customer Pages
-import CustomerMeters from './pages/dashboard/customer/Meters';
-import CustomerConsumption from './pages/dashboard/customer/Consumption';
-import CustomerPayments from './pages/dashboard/customer/Payments';
-import CustomerTopup from './pages/dashboard/customer/Topup';
-import CustomerProfile from './pages/dashboard/customer/Profile';
+import MyMeters from './pages/dashboard/customer/MyMeters';
+import ConsumptionHistory from './pages/dashboard/customer/ConsumptionHistory';
+import PaymentHistory from './pages/dashboard/customer/PaymentHistory';
+import TopUp from './pages/dashboard/customer/TopUp';
+
+// Common Pages
+import Profile from './pages/dashboard/profile/Profile';
+import Settings from './pages/dashboard/settings/Settings';
 
 // Error Pages
 import NotFound from './pages/errors/NotFound';
@@ -63,6 +57,26 @@ const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode,
   }
   
   return <>{children}</>;
+};
+
+// Dynamic Dashboard Redirect Component
+const DynamicDashboardRedirect = () => {
+  const { user } = useAuth();
+  
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+  
+  switch (user.role) {
+    case 'superadmin':
+      return <Navigate to="/dashboard/superadmin" replace />;
+    case 'client':
+      return <Navigate to="/dashboard/client" replace />;
+    case 'customer':
+      return <Navigate to="/dashboard/customer" replace />;
+    default:
+      return <Navigate to="/unauthorized" replace />;
+  }
 };
 
 function App() {
@@ -101,8 +115,19 @@ function App() {
           {/* Dynamic Dashboard Home based on user role */}
           <Route path="home" element={
             <ProtectedRoute allowedRoles={['superadmin', 'client', 'customer']}>
-              {/* This will be replaced with the appropriate dashboard based on user role */}
-              <div>Dashboard Home</div>
+              <DynamicDashboardRedirect />
+            </ProtectedRoute>
+          } />
+          
+          {/* Common Routes */}
+          <Route path="profile" element={
+            <ProtectedRoute allowedRoles={['superadmin', 'client', 'customer']}>
+              <Profile />
+            </ProtectedRoute>
+          } />
+          <Route path="settings" element={
+            <ProtectedRoute allowedRoles={['superadmin', 'client', 'customer']}>
+              <Settings />
             </ProtectedRoute>
           } />
           
@@ -112,44 +137,9 @@ function App() {
               <SuperadminDashboard />
             </ProtectedRoute>
           } />
-          <Route path="clients" element={
+          <Route path="superadmin/clients" element={
             <ProtectedRoute allowedRoles={['superadmin']}>
-              <ClientsManagement />
-            </ProtectedRoute>
-          } />
-          <Route path="properties" element={
-            <ProtectedRoute allowedRoles={['superadmin']}>
-              <PropertiesManagement />
-            </ProtectedRoute>
-          } />
-          <Route path="customers" element={
-            <ProtectedRoute allowedRoles={['superadmin']}>
-              <CustomersManagement />
-            </ProtectedRoute>
-          } />
-          <Route path="meters" element={
-            <ProtectedRoute allowedRoles={['superadmin']}>
-              <MetersManagement />
-            </ProtectedRoute>
-          } />
-          <Route path="payments" element={
-            <ProtectedRoute allowedRoles={['superadmin']}>
-              <PaymentsManagement />
-            </ProtectedRoute>
-          } />
-          <Route path="reports" element={
-            <ProtectedRoute allowedRoles={['superadmin']}>
-              <ReportsManagement />
-            </ProtectedRoute>
-          } />
-          <Route path="service-fees" element={
-            <ProtectedRoute allowedRoles={['superadmin']}>
-              <ServiceFeesManagement />
-            </ProtectedRoute>
-          } />
-          <Route path="settings" element={
-            <ProtectedRoute allowedRoles={['superadmin']}>
-              <SystemSettings />
+              <ClientManagement />
             </ProtectedRoute>
           } />
           
@@ -161,32 +151,22 @@ function App() {
           } />
           <Route path="client/properties" element={
             <ProtectedRoute allowedRoles={['client']}>
-              <ClientProperties />
+              <PropertyManagement />
             </ProtectedRoute>
           } />
           <Route path="client/customers" element={
             <ProtectedRoute allowedRoles={['client']}>
-              <ClientCustomers />
+              <CustomerManagement />
             </ProtectedRoute>
           } />
           <Route path="client/meters" element={
             <ProtectedRoute allowedRoles={['client']}>
-              <ClientMeters />
+              <MeterManagement />
             </ProtectedRoute>
           } />
           <Route path="client/payments" element={
             <ProtectedRoute allowedRoles={['client']}>
-              <ClientPayments />
-            </ProtectedRoute>
-          } />
-          <Route path="client/reports" element={
-            <ProtectedRoute allowedRoles={['client']}>
-              <ClientReports />
-            </ProtectedRoute>
-          } />
-          <Route path="client/settings" element={
-            <ProtectedRoute allowedRoles={['client']}>
-              <ClientSettings />
+              <PaymentManagement />
             </ProtectedRoute>
           } />
           
@@ -198,27 +178,22 @@ function App() {
           } />
           <Route path="customer/meters" element={
             <ProtectedRoute allowedRoles={['customer']}>
-              <CustomerMeters />
+              <MyMeters />
             </ProtectedRoute>
           } />
           <Route path="customer/consumption" element={
             <ProtectedRoute allowedRoles={['customer']}>
-              <CustomerConsumption />
+              <ConsumptionHistory />
             </ProtectedRoute>
           } />
           <Route path="customer/payments" element={
             <ProtectedRoute allowedRoles={['customer']}>
-              <CustomerPayments />
+              <PaymentHistory />
             </ProtectedRoute>
           } />
           <Route path="customer/topup" element={
             <ProtectedRoute allowedRoles={['customer']}>
-              <CustomerTopup />
-            </ProtectedRoute>
-          } />
-          <Route path="customer/profile" element={
-            <ProtectedRoute allowedRoles={['customer']}>
-              <CustomerProfile />
+              <TopUp />
             </ProtectedRoute>
           } />
         </Route>
