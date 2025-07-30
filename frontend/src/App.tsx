@@ -25,6 +25,8 @@ import ClientManagement from './pages/dashboard/superadmin/ClientManagement';
 
 // Client Pages
 import PropertyManagement from './pages/dashboard/client/PropertyManagement';
+import Properties from './pages/dashboard/client/Properties';
+import PropertyDetail from './pages/dashboard/client/PropertyDetail';
 import CustomerManagement from './pages/dashboard/client/CustomerManagement';
 import MeterManagement from './pages/dashboard/client/MeterManagement';
 import PaymentManagement from './pages/dashboard/client/PaymentManagement';
@@ -150,6 +152,16 @@ function App() {
             </ProtectedRoute>
           } />
           <Route path="client/properties" element={
+            <ProtectedRoute allowedRoles={['client']}>
+              <Properties />
+            </ProtectedRoute>
+          } />
+          <Route path="client/properties/:id" element={
+            <ProtectedRoute allowedRoles={['client']}>
+              <PropertyDetail />
+            </ProtectedRoute>
+          } />
+          <Route path="client/property-management" element={
             <ProtectedRoute allowedRoles={['client']}>
               <PropertyManagement />
             </ProtectedRoute>
