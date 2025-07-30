@@ -227,6 +227,25 @@ class AuthController
             'message' => 'Verification email has been resent',
         ]);
     }
+    
+    public function getUser(Request $request, Response $response): Response
+    {
+        // Get the user from the request attribute (set by the JWT middleware)
+        $user = $request->getAttribute('user');
+        
+        if (!$user) {
+            return $this->jsonResponse($response, [
+                'success' => false,
+                'message' => 'User not found',
+            ], 404);
+        }
+        
+        return $this->jsonResponse($response, [
+            'success' => true,
+            'message' => 'User retrieved successfully',
+            'data' => $user,
+        ]);
+    }
 
     private function generateToken(array $user): string
     {
