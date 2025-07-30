@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import api from '../services/api';
+import apiService from '../services/apiService';
 
 interface User {
   id: string;
@@ -42,7 +42,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsLoading(true);
         
         // Get token from localStorage
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem('auth_token');
         
         if (!token) {
           setIsAuthenticated(false);
@@ -51,19 +51,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           return;
         }
         
-        // Set token in API headers
-        api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        // Get user data (token is automatically added by the apiService interceptor)
+        const response = await apiService.auth.getUser();
         
-        // Get user data
-        const response = await api.get('/users/me');
-        
-        setUser(response.data.data);
-        setIsAuthenticated(true);
+        if (response.success && response.data) {
+          setUser(response.data);
+          setIsAuthenticated(true);
+        } else {
+          // Token is invalid or expired
+          localStorage.removeItem('auth_token');
+          localStorage.removeItem('user');
+          setIsAuthenticated(false);
+          setUser(null);
+        }
       } catch (error) {
         console.error('Authentication error:', error);
         setIsAuthenticated(false);
         setUser(null);
-        localStorage.removeItem('token');
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('user');
       } finally {
         setIsLoading(false);
       }
@@ -77,34 +83,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsLoading(true);
       setError(null);
       
-      const response = await api.post('/auth/login', { email, password });
+      const response = await apiService.auth.login(email, password);
       
-      const { token, user } = response.data.data;
-      
-      // Save token to localStorage
-      if (remember) {
-        localStorage.setItem('token', token);
+      if (response.success && response.data) {
+        const { token, user } = response.data;
+        
+        // Save token and user to localStorage
+        localStorage.setItem('auth_token', token);
+        localStorage.setItem('user', JSON.stringify(user));
+        
+        setUser(user);
+        setIsAuthenticated(true);
+        
+        // Redirect based on user role
+        if (user.role === 'superadmin') {
+          navigate('/dashboard/superadmin');
+        } else if (user.role === 'client') {
+          navigate('/dashboard/client');
+        } else if (user.role === 'customer') {
+          navigate('/dashboard/customer');
+        }
       } else {
-        sessionStorage.setItem('token', token);
-      }
-      
-      // Set token in API headers
-      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      
-      setUser(user);
-      setIsAuthenticated(true);
-      
-      // Redirect based on user role
-      if (user.role === 'superadmin') {
-        navigate('/dashboard/superadmin');
-      } else if (user.role === 'client') {
-        navigate('/dashboard/client');
-      } else if (user.role === 'customer') {
-        navigate('/dashboard/customer');
+        setError(response.message || 'An error occurred during login');
+        setIsAuthenticated(false);
+        setUser(null);
       }
     } catch (error: any) {
       console.error('Login error:', error);
-      setError(error.response?.data?.message || 'An error occurred during login');
+      setError('An error occurred during login. Please try again later.');
       setIsAuthenticated(false);
       setUser(null);
     } finally {
@@ -117,14 +123,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsLoading(true);
       
       // Call logout API
-      await api.post('/auth/logout');
+      await apiService.auth.logout();
       
-      // Remove token from localStorage
-      localStorage.removeItem('token');
-      sessionStorage.removeItem('token');
-      
-      // Remove token from API headers
-      delete api.defaults.headers.common['Authorization'];
+      // Clean up regardless of API response
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('user');
       
       setUser(null);
       setIsAuthenticated(false);
@@ -133,6 +136,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       navigate('/login');
     } catch (error) {
       console.error('Logout error:', error);
+      
+      // Even if the API call fails, we should still clear local storage and state
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('user');
+      setUser(null);
+      setIsAuthenticated(false);
+      navigate('/login');
     } finally {
       setIsLoading(false);
     }
@@ -143,13 +153,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsLoading(true);
       setError(null);
       
-      await api.post('/auth/register', userData);
+      const response = await apiService.auth.register(userData);
       
-      // Redirect to login page with success message
-      navigate('/login', { state: { message: 'Registration successful! Please check your email to verify your account.' } });
+      if (response.success) {
+        // Redirect to login page with success message
+        navigate('/login', { state: { message: 'Registration successful! Please check your email to verify your account.' } });
+      } else {
+        setError(response.message || 'An error occurred during registration');
+      }
     } catch (error: any) {
       console.error('Registration error:', error);
-      setError(error.response?.data?.message || 'An error occurred during registration');
+      setError('An error occurred during registration. Please try again later.');
     } finally {
       setIsLoading(false);
     }
@@ -160,13 +174,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsLoading(true);
       setError(null);
       
-      await api.post('/auth/forgot-password', { email });
+      const response = await apiService.auth.forgotPassword(email);
       
-      // Redirect to login page with success message
-      navigate('/login', { state: { message: 'Password reset link has been sent to your email.' } });
+      if (response.success) {
+        // Redirect to login page with success message
+        navigate('/login', { state: { message: 'Password reset link has been sent to your email.' } });
+      } else {
+        setError(response.message || 'An error occurred while sending reset link');
+      }
     } catch (error: any) {
       console.error('Forgot password error:', error);
-      setError(error.response?.data?.message || 'An error occurred while sending reset link');
+      setError('An error occurred while sending reset link. Please try again later.');
     } finally {
       setIsLoading(false);
     }
@@ -177,13 +195,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsLoading(true);
       setError(null);
       
-      await api.post('/auth/reset-password', { token, password, password_confirmation: passwordConfirmation });
+      const response = await apiService.auth.resetPassword(token, password, passwordConfirmation);
       
-      // Redirect to login page with success message
-      navigate('/login', { state: { message: 'Password has been reset successfully.' } });
+      if (response.success) {
+        // Redirect to login page with success message
+        navigate('/login', { state: { message: 'Password has been reset successfully.' } });
+      } else {
+        setError(response.message || 'An error occurred while resetting password');
+      }
     } catch (error: any) {
       console.error('Reset password error:', error);
-      setError(error.response?.data?.message || 'An error occurred while resetting password');
+      setError('An error occurred while resetting password. Please try again later.');
     } finally {
       setIsLoading(false);
     }
@@ -194,13 +216,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsLoading(true);
       setError(null);
       
-      await api.get(`/auth/verify-email/${token}`);
+      const response = await apiService.auth.verifyEmail(token);
       
-      // Redirect to login page with success message
-      navigate('/login', { state: { message: 'Email verified successfully.' } });
+      if (response.success) {
+        // Redirect to login page with success message
+        navigate('/login', { state: { message: 'Email verified successfully.' } });
+      } else {
+        setError(response.message || 'An error occurred while verifying email');
+      }
     } catch (error: any) {
       console.error('Verify email error:', error);
-      setError(error.response?.data?.message || 'An error occurred while verifying email');
+      setError('An error occurred while verifying email. Please try again later.');
     } finally {
       setIsLoading(false);
     }
@@ -211,13 +237,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsLoading(true);
       setError(null);
       
-      await api.post('/auth/resend-verification', { email });
+      // This endpoint might not be available in the apiService yet
+      const response = await apiService.post('/auth/resend-verification', { email });
       
-      // Show success message
-      alert('Verification email has been resent.');
+      if (response.success) {
+        // Show success message
+        alert('Verification email has been resent.');
+      } else {
+        setError(response.message || 'An error occurred while resending verification email');
+      }
     } catch (error: any) {
       console.error('Resend verification error:', error);
-      setError(error.response?.data?.message || 'An error occurred while resending verification email');
+      setError('An error occurred while resending verification email. Please try again later.');
     } finally {
       setIsLoading(false);
     }
@@ -228,15 +259,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsLoading(true);
       setError(null);
       
-      const response = await api.put('/users/me', userData);
+      const response = await apiService.users.updateProfile(userData);
       
-      setUser(response.data.data);
-      
-      // Show success message
-      alert('Profile updated successfully.');
+      if (response.success && response.data) {
+        setUser(response.data);
+        
+        // Update stored user data
+        localStorage.setItem('user', JSON.stringify(response.data));
+        
+        // Show success message
+        alert('Profile updated successfully.');
+      } else {
+        setError(response.message || 'An error occurred while updating profile');
+      }
     } catch (error: any) {
       console.error('Update profile error:', error);
-      setError(error.response?.data?.message || 'An error occurred while updating profile');
+      setError('An error occurred while updating profile. Please try again later.');
     } finally {
       setIsLoading(false);
     }
@@ -247,17 +285,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsLoading(true);
       setError(null);
       
-      await api.put('/users/me/password', {
-        current_password: currentPassword,
-        password: newPassword,
-        password_confirmation: newPasswordConfirmation,
-      });
+      const response = await apiService.users.changePassword(
+        currentPassword,
+        newPassword,
+        newPasswordConfirmation
+      );
       
-      // Show success message
-      alert('Password updated successfully.');
+      if (response.success) {
+        // Show success message
+        alert('Password updated successfully.');
+      } else {
+        setError(response.message || 'An error occurred while updating password');
+      }
     } catch (error: any) {
       console.error('Update password error:', error);
-      setError(error.response?.data?.message || 'An error occurred while updating password');
+      setError('An error occurred while updating password. Please try again later.');
     } finally {
       setIsLoading(false);
     }
